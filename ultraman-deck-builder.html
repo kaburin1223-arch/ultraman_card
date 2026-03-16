@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UCG デッキビルダー</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════ RESET & BASE ══════════════ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Noto Sans JP',sans-serif;
+  background:#07090f;color:#e0eeff;
+  display:flex;flex-direction:column;
+  font-size:15px;
+}
+/* PC: slightly larger base */
+@media(min-width:768px){
+  body{font-size:16px;}
+}
+:root{
+  --bg:#07090f; --bg2:#0d1322; --bg3:#131b2e; --surf:#182030;
+  --bd:#1e3050;  --bd2:#2a4570;
+  --ac:#00ccff;  --ac2:#ff6600; --grn:#00e676; --red:#ff3355; --warn:#ffb300;
+  --tx:#e0eeff;  --tx2:#6b90b8; --tx3:#334d6e;
+  --lv1:#38bdf8; --lv2:#b794f4; --lv3:#f6993f; --lv4:#f56565;
+  --sc:#2dd4bf;  --kj:#e879f9;  --mk:#fbbf24;
+}
+
+/* ══════════════ HEADER ══════════════ */
+.hdr{
+  height:54px; flex-shrink:0;
+  display:flex; align-items:center; gap:10px;
+  padding:0 16px;
+  background:#07090f;
+  border-bottom:1px solid var(--bd);
+}
+.logo{
+  font-family:'Rajdhani',sans-serif; font-size:20px; font-weight:700;
+  color:var(--ac); letter-spacing:3px;
+}
+.logo span{color:var(--ac2);}
+.hpills{margin-left:auto; display:flex; gap:8px;}
+.hpill{
+  display:flex; align-items:center; gap:5px;
+  background:var(--surf); border:1px solid var(--bd); border-radius:20px;
+  padding:4px 13px; font-size:12px; color:var(--tx2);
+}
+.hpill b{font-family:'Rajdhani',sans-serif; font-size:17px; color:var(--ac);}
+.hpill.full b{color:var(--grn);} .hpill.over b{color:var(--red);}
+
+/* ══════════════ TAB BAR ══════════════ */
+.tabs{
+  height:48px; flex-shrink:0;
+  display:flex;
+  background:var(--bg2);
+  border-bottom:2px solid var(--bd);
+}
+.tab{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:5px;
+  font-size:13px; font-weight:700; color:var(--tx2);
+  cursor:pointer; border:none; background:none; position:relative;
+}
+.tab.on{color:var(--ac);}
+.tab.on::after{
+  content:''; position:absolute; bottom:-2px; left:0; right:0; height:2px;
+  background:var(--ac);
+}
+.tbadge{
+  background:var(--red); color:#fff; border-radius:10px;
+  padding:0 6px; font-size:10px; min-width:18px; text-align:center;
+  line-height:17px; height:17px;
+}
+.tbadge.grn{background:var(--grn); color:#000;}
+.tbadge.warn{background:var(--warn); color:#000;}
+
+/* ══════════════ PANELS ══════════════ */
+.panels{flex:1; overflow:hidden; position:relative;}
+.panel{position:absolute; inset:0; overflow-y:auto; display:none;}
+.panel.on{display:block;}
+.panel::-webkit-scrollbar{width:3px;}
+.panel::-webkit-scrollbar-thumb{background:var(--bd2);}
+
+/* ══════════════ SEARCH BAR ══════════════ */
+.search-bar{
+  position:sticky; top:0; z-index:10;
+  padding:10px 14px; background:var(--bg2);
+  border-bottom:1px solid var(--bd);
+  display:flex; gap:8px; align-items:center;
+}
+.si-wrap{position:relative; flex:1; display:flex; align-items:center;}
+.si-icon{position:absolute; left:11px; width:15px; height:15px; color:var(--tx2); pointer-events:none;}
+.sinput{
+  width:100%; background:var(--bg3); border:1px solid var(--bd);
+  border-radius:9px; padding:9px 10px 9px 35px;
+  color:var(--tx); font-size:14px; font-family:'Noto Sans JP',sans-serif;
+  outline:none; transition:border-color .2s;
+}
+.sinput:focus{border-color:var(--ac);}
+.sinput::placeholder{color:var(--tx3);}
+.filter-btn{
+  padding:9px 16px; border-radius:9px;
+  border:1px solid var(--bd); background:var(--bg3);
+  color:var(--tx2); font-size:13px; font-weight:700;
+  cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:5px;
+  font-family:'Noto Sans JP',sans-serif;
+}
+.filter-btn.active{border-color:var(--ac); color:var(--ac);}
+.filter-badge-dot{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--ac); display:none;
+}
+.filter-badge-dot.show{display:block;}
+
+/* active filter bar */
+.af-bar{
+  padding:7px 14px; background:var(--bg2);
+  border-bottom:1px solid var(--bd);
+  display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+}
+.af-chip{
+  padding:4px 10px; border-radius:20px; font-size:11px;
+  background:rgba(0,204,255,.12); border:1px solid rgba(0,204,255,.3);
+  color:var(--ac); cursor:pointer; display:flex; align-items:center; gap:5px;
+}
+.af-chip .x{opacity:.6; font-size:12px;}
+
+/* ══════════════ LOAD / ERROR ══════════════ */
+.load-box{
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:80px 20px; gap:16px;
+  color:var(--tx2); font-size:14px;
+}
+.spinner{
+  width:40px; height:40px;
+  border:2px solid var(--bd2); border-top-color:var(--ac);
+  border-radius:50%; animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pbar-wrap{width:200px; height:4px; background:var(--bd); border-radius:2px; overflow:hidden;}
+.pbar{height:100%; background:var(--ac); border-radius:2px; transition:width .3s;}
+.err-box{
+  display:flex; flex-direction:column; align-items:center;
+  padding:60px 20px; gap:14px; text-align:center;
+}
+.err-icon{font-size:48px;}
+.err-msg{font-size:13px; color:var(--tx2); line-height:1.7; max-width:300px; white-space:pre-line;}
+.retry-btn{
+  padding:11px 30px; border-radius:9px;
+  border:1px solid var(--ac); background:transparent;
+  color:var(--ac); font-size:14px; font-weight:700;
+  cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+}
+
+/* ══════════════ CARD AREA ══════════════ */
+.cards-area{padding:14px;}
+.rcnt{font-size:12px; color:var(--tx2); margin-bottom:10px;}
+
+/* Section headers inside cards area */
+.card-section-title{
+  font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase; color:var(--tx3);
+  margin:14px 0 8px; padding-bottom:5px;
+  border-bottom:1px solid var(--bd);
+}
+.card-section-title:first-child{margin-top:0;}
+
+/* Normal card grid (portrait) */
+.cgrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:12px;
+}
+@media(min-width:600px){
+  .cgrid{grid-template-columns:repeat(auto-fill,minmax(155px,1fr));}
+}
+@media(min-width:900px){
+  .cgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));}
+}
+
+/* Scene card grid (landscape – 2 per row) */
+.cgrid-scene{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+@media(min-width:600px){
+  .cgrid-scene{grid-template-columns:repeat(3,1fr);}
+}
+@media(min-width:900px){
+  .cgrid-scene{grid-template-columns:repeat(4,1fr);}
+}
+
+/* ── Card item (portrait) ── */
+.card{
+  background:var(--surf); border:1px solid var(--bd);
+  border-radius:12px; overflow:hidden; position:relative;
+  -webkit-tap-highlight-color:transparent;
+}
+.card.dk{border-color:rgba(0,230,118,.5);}
+.card.mx{border-color:rgba(255,51,85,.5);}
+
+.card-img-area{position:relative; cursor:pointer;}
+.card-img-area:active{opacity:.8;}
+.cimg{width:100%; display:block; object-fit:cover; background:var(--bg3);}
+/* portrait ratio */
+.cimg-port{aspect-ratio:3/4;}
+/* landscape ratio for scene cards */
+.cimg-land{aspect-ratio:4/3; object-position:center;}
+
+.cph{
+  width:100%; display:flex; align-items:center;
+  justify-content:center; font-size:34px;
+  background:var(--bg3); opacity:.5;
+}
+.cph-port{aspect-ratio:3/4;}
+.cph-land{aspect-ratio:4/3;}
+
+.info-btn{
+  position:absolute; top:6px; left:6px; z-index:2;
+  width:24px; height:24px; border-radius:50%;
+  background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.25);
+  color:rgba(255,255,255,.9); font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; backdrop-filter:blur(4px);
+}
+.info-btn:active{background:var(--ac); color:#000;}
+
+.cbadge{
+  position:absolute; top:6px; right:6px; z-index:2;
+  width:22px; height:22px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:900; font-family:'Rajdhani',sans-serif;
+  background:var(--grn); color:#000;
+  box-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+.card.mx .cbadge{background:var(--red); color:#fff;}
+
+/* +/- ctrl strip */
+.card-ctrl{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:7px 10px;
+  background:var(--bg3); border-top:1px solid var(--bd);
+}
+.cc-btn{
+  width:30px; height:30px; border-radius:7px;
+  border:1px solid var(--bd2); background:var(--surf);
+  color:var(--tx2); font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.cc-btn:active{border-color:var(--ac); color:var(--ac);}
+.cc-btn.minus:active{border-color:var(--red); color:var(--red);}
+.cc-cnt{
+  font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700;
+  min-width:22px; text-align:center; color:var(--grn);
+}
+.cc-cnt.zero{color:var(--tx3);}
+
+/* card body text */
+.cbody{padding:7px 9px 9px;}
+.cname{
+  font-size:12px; font-weight:700; line-height:1.4; color:var(--tx);
+  margin-bottom:4px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.ctyn{font-size:11px; color:var(--tx2); margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ctags{display:flex; gap:4px; flex-wrap:wrap; align-items:center;}
+.tag{font-size:11px; padding:2px 6px; border-radius:4px; font-family:'Rajdhani',sans-serif; font-weight:600;}
+.t-lv1{background:rgba(56,189,248,.15); color:var(--lv1);}
+.t-lv2{background:rgba(183,148,244,.15); color:var(--lv2);}
+.t-lv3{background:rgba(246,153,63,.15); color:var(--lv3);}
+.t-lv4{background:rgba(245,101,101,.15); color:var(--lv4);}
+.t-sc{background:rgba(45,212,191,.15); color:var(--sc);}
+.t-kj{background:rgba(232,121,249,.15); color:var(--kj);}
+.t-mk{background:rgba(251,191,36,.15); color:var(--mk);}
+.t-r{background:rgba(255,255,255,.05); color:var(--tx2);}
+.cbp{font-size:11px; color:var(--tx3); margin-left:auto;}
+
+.no-res{text-align:center; padding:60px 20px; color:var(--tx3);}
+.no-res .big{font-size:44px; opacity:.2; margin-bottom:10px;}
+
+/* pager */
+.pager{display:flex; align-items:center; justify-content:center; gap:6px; padding:16px 0; flex-wrap:wrap;}
+.pb{min-width:36px; height:32px; padding:0 10px; border-radius:7px; border:1px solid var(--bd); background:var(--surf); color:var(--tx2); font-size:13px; cursor:pointer;}
+.pb.on{background:var(--ac); border-color:var(--ac); color:#000; font-weight:700;}
+.pb:disabled{opacity:.25; cursor:default;}
+.psep{color:var(--tx3); font-size:13px;}
+.pcnt{font-size:12px; color:var(--tx2); padding:0 8px;}
+
+/* ══════════════ DECK PANEL ══════════════ */
+.dk-panel{display:flex; flex-direction:column; height:100%;}
+.dk-top{padding:11px 16px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:10px;}
+.dk-ni{
+  flex:1; background:none; border:none;
+  border-bottom:1px solid var(--bd);
+  color:var(--tx); font-size:15px; font-weight:700;
+  font-family:'Noto Sans JP',sans-serif; outline:none; padding:3px 5px;
+}
+.dk-ni:focus{border-color:var(--ac);}
+
+.dk-st{padding:10px 16px; border-bottom:1px solid var(--bd); display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
+.dst{background:var(--bg3); border-radius:8px; padding:7px 5px; text-align:center;}
+.dst .n{font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700;}
+.dst .l{font-size:10px; color:var(--tx2); margin-top:1px;}
+.dst.lv1 .n{color:var(--lv1);} .dst.lv2 .n{color:var(--lv2);}
+.dst.lv3 .n{color:var(--lv3);} .dst.sc  .n{color:var(--sc);}
+
+.dk-pg{padding:8px 16px; border-bottom:1px solid var(--bd);}
+.dpi{display:flex; justify-content:space-between; font-size:11px; color:var(--tx2); margin-bottom:5px;}
+.dpb{height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; display:flex; gap:1px;}
+.dps{height:100%; transition:flex .3s;}
+.dps-lv1{background:var(--lv1);} .dps-lv2{background:var(--lv2);} .dps-lv3{background:var(--lv3);}
+.dps-lv4{background:var(--lv4);} .dps-sc{background:var(--sc);} .dps-kj{background:var(--kj);} .dps-mk{background:var(--mk);}
+
+.dk-btns{padding:8px 16px; border-bottom:1px solid var(--bd); display:flex; gap:6px;}
+.btn{
+  flex:1; padding:9px 6px; border-radius:8px;
+  border:1px solid var(--bd); background:var(--bg3);
+  color:var(--tx2); font-size:12px; font-weight:700;
+  cursor:pointer; font-family:'Noto Sans JP',sans-serif; text-align:center;
+}
+.btn:active{transform:scale(.97);}
+.btn.p{background:var(--ac); border-color:var(--ac); color:#000;}
+.btn.w{border-color:var(--warn); color:var(--warn);}
+.btn.d{border-color:var(--red); color:var(--red);}
+
+/* validation banner */
+.val-banner{
+  margin:8px 16px; padding:11px 14px; border-radius:9px;
+  font-size:12px; line-height:1.65; display:none;
+}
+.val-banner.ok{background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.35); color:#5fdd90;}
+.val-banner.ng{background:rgba(255,51,85,.07); border:1px solid rgba(255,51,85,.35); color:#ff7090;}
+.val-banner.warn{background:rgba(255,179,0,.07); border:1px solid rgba(255,179,0,.35); color:var(--warn);}
+.val-title{font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:7px; font-size:13px;}
+
+.dk-list{flex:1; overflow-y:auto; padding:10px 16px;}
+.dk-list::-webkit-scrollbar{width:3px;}
+.dk-list::-webkit-scrollbar-thumb{background:var(--bd2);}
+.dk-empty{text-align:center; padding:36px 10px; color:var(--tx3);}
+.dk-empty .ico{font-size:36px; margin-bottom:10px; opacity:.2;}
+.dk-empty p{font-size:13px; line-height:1.7;}
+
+.dk-grp{margin-bottom:14px;}
+.dkt{
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase;
+  padding-bottom:6px; border-bottom:1px solid var(--bd); margin-bottom:6px;
+}
+.dkt.lv1{color:var(--lv1);} .dkt.lv2{color:var(--lv2);} .dkt.lv3{color:var(--lv3);}
+.dkt.lv4{color:var(--lv4);} .dkt.sc{color:var(--sc);}   .dkt.kj{color:var(--kj);} .dkt.mk{color:var(--mk);}
+
+.drow{display:flex; align-items:center; gap:8px; padding:6px 5px; border-radius:7px;}
+.drow:active{background:var(--bg3);}
+.dth{width:34px; height:43px; border-radius:4px; object-fit:cover; flex-shrink:0; background:var(--bg3);}
+/* landscape thumb for scene in deck */
+.dth-land{width:60px; height:38px; border-radius:4px; object-fit:cover; flex-shrink:0; background:var(--bg3);}
+.dthph{width:34px; height:43px; border-radius:4px; background:var(--bg3); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;}
+.dri{flex:1; min-width:0;}
+.drn{font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--tx);}
+.drs{font-size:11px; color:var(--tx3); margin-top:2px;}
+.drc{display:flex; align-items:center; gap:5px;}
+.rbtn{
+  width:24px; height:24px; border-radius:5px;
+  border:1px solid var(--bd); background:var(--bg3);
+  color:var(--tx2); cursor:pointer; font-size:15px;
+  display:flex; align-items:center; justify-content:center;
+}
+.rbtn:active{border-color:var(--ac);}
+.rbtn.rm:active{border-color:var(--red); color:var(--red);}
+.rcnt{font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:700; min-width:20px; text-align:center; color:var(--grn);}
+
+/* ══════════════ MODALS (shared) ══════════════ */
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.8);
+  z-index:200; display:flex; align-items:flex-end; justify-content:center;
+  backdrop-filter:blur(8px);
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.overlay.open{opacity:1; pointer-events:all;}
+@media(min-width:600px){.overlay{align-items:center;}}
+
+.modal{
+  background:var(--bg2); border:1px solid var(--bd);
+  border-radius:18px 18px 0 0;
+  width:100%;
+  /* dvh対応: iOSのアドレスバーを除いた実際の高さを使う */
+  max-height:85vh;
+  max-height:85dvh;
+  overflow:hidden; display:flex; flex-direction:column;
+  transform:translateY(24px); transition:transform .25s;
+}
+@media(min-width:600px){
+  .modal{border-radius:14px; width:560px; max-width:96vw; transform:scale(.94); max-height:88vh; max-height:88dvh;}
+  .overlay.open .modal{transform:scale(1);}
+}
+.overlay.open .modal{transform:none;}
+
+/* drag handle */
+.modal-handle{
+  width:40px; height:4px; border-radius:2px;
+  background:var(--bd2); margin:10px auto 0; flex-shrink:0;
+}
+.mh{
+  padding:14px 20px 14px; border-bottom:1px solid var(--bd);
+  display:flex; align-items:center; gap:12px; flex-shrink:0;
+}
+.mh h2{font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700; color:var(--ac); flex:1; letter-spacing:1px;}
+.mc{
+  background:var(--bg3); border:1px solid var(--bd);
+  color:var(--tx2); font-size:20px; cursor:pointer;
+  width:38px; height:38px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.mc:active{background:var(--red); border-color:var(--red); color:#fff;}
+.mb{padding:0; overflow-y:auto; flex:1;}
+.mb::-webkit-scrollbar{width:3px;}
+.mb::-webkit-scrollbar-thumb{background:var(--bd2);}
+.mf{padding:12px 20px; border-top:1px solid var(--bd); display:flex; gap:8px; justify-content:flex-end; flex-shrink:0;}
+
+/* ── select (character dropdown) ── */
+.fselect{
+  width:100%;background:var(--bg3);border:1px solid var(--bd);
+  border-radius:9px;padding:10px 12px;color:var(--tx);
+  font-size:13px;font-family:'Noto Sans JP',sans-serif;
+  outline:none;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234d6b8a' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  cursor:pointer;
+}
+.fselect:focus{border-color:var(--ac);}
+.fselect option{background:var(--bg3);color:var(--tx);}
+.fp{padding:16px 20px;}
+.fsec{margin-bottom:18px;}
+.ftitle{
+  font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600;
+  color:var(--tx3); letter-spacing:3px; text-transform:uppercase; margin-bottom:10px;
+}
+.chips{display:flex; flex-wrap:wrap; gap:8px;}
+.chip{
+  padding:7px 16px; border-radius:22px;
+  border:1px solid var(--bd); background:var(--bg3);
+  font-size:13px; cursor:pointer; color:var(--tx2); user-select:none;
+}
+.chip:active{transform:scale(.95);}
+.chip.on{background:var(--ac); border-color:var(--ac); color:#000; font-weight:700;}
+.chip.lv1.on{background:var(--lv1); border-color:var(--lv1);}
+.chip.lv2.on{background:var(--lv2); border-color:var(--lv2);}
+.chip.lv3.on{background:var(--lv3); border-color:var(--lv3);}
+.chip.sc.on{background:var(--sc); border-color:var(--sc);}
+.chip.kj.on{background:var(--kj); border-color:var(--kj);}
+.filter-apply-btn{
+  width:100%; padding:14px; border-radius:10px;
+  background:var(--ac); border:none; color:#000;
+  font-family:'Noto Sans JP',sans-serif; font-size:15px; font-weight:700;
+  cursor:pointer; margin-top:4px;
+}
+.filter-reset-btn{
+  flex:1; padding:12px; border-radius:10px;
+  border:1px solid var(--bd); background:var(--bg3);
+  color:var(--tx2); font-family:'Noto Sans JP',sans-serif; font-size:14px;
+  cursor:pointer;
+}
+
+/* ══════════════ DETAIL MODAL ══════════════ */
+.detail-top{display:flex; gap:16px; padding:16px 20px; border-bottom:1px solid var(--bd);}
+.detail-img{flex-shrink:0; border-radius:10px; overflow:hidden;}
+.detail-img img{display:block; border-radius:10px;}
+.detail-img-ph{border-radius:10px; background:var(--bg3); display:flex; align-items:center; justify-content:center;}
+.detail-meta{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0;}
+.detail-name{font-size:16px; font-weight:900; line-height:1.35; color:var(--tx);}
+.detail-tyn{font-size:13px; color:var(--tx2);}
+.detail-tags{display:flex; flex-wrap:wrap; gap:5px; margin-top:2px;}
+.bp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:4px;}
+.bp-cell{background:var(--bg3); border-radius:7px; padding:5px 7px; text-align:center;}
+.bp-cell .bl{font-size:10px; color:var(--tx3); margin-bottom:2px; letter-spacing:.5px; font-family:'Rajdhani',sans-serif;}
+.bp-cell .bv{font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700; color:var(--tx);}
+.bp-cell.hi .bv{color:var(--ac);}
+.detail-body{padding:14px 20px; display:flex; flex-direction:column; gap:12px;}
+.detail-sec{background:var(--bg3); border-radius:10px; padding:12px 14px;}
+.detail-sec-t{font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--tx3); margin-bottom:8px; font-family:'Rajdhani',sans-serif;}
+.detail-effect{font-size:14px; line-height:1.8; color:var(--tx);}
+.detail-flavor{font-size:13px; line-height:1.7; color:var(--tx2); font-style:italic;}
+.detail-row{display:flex; gap:7px; flex-wrap:wrap;}
+.detail-item{background:var(--bg3); border-radius:6px; padding:5px 12px; font-size:12px; color:var(--tx2); border:1px solid var(--bd);}
+.detail-item span{color:var(--tx); font-weight:700; margin-left:5px;}
+.detail-ctrl{
+  padding:12px 16px; border-top:1px solid var(--bd);
+  display:flex; align-items:center; justify-content:center; gap:14px; flex-shrink:0;
+  background:var(--bg2);
+}
+.dc-btn{
+  width:44px; height:44px; border-radius:12px;
+  border:1px solid var(--bd2); background:var(--bg3);
+  color:var(--tx2); font-size:24px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.dc-btn:active{border-color:var(--ac); color:var(--ac);}
+.dc-btn.minus:active{border-color:var(--red); color:var(--red);}
+.dc-cnt{font-family:'Rajdhani',sans-serif; font-size:32px; font-weight:700; color:var(--grn); min-width:44px; text-align:center;}
+.dc-cnt.zero{color:var(--tx3);}
+.dc-label{font-size:11px; color:var(--tx2); text-align:center; margin-top:2px;}
+
+/* ══════════════ EXPORT MODAL ══════════════ */
+.etabs{display:flex; gap:6px; margin-bottom:14px;}
+.etab{
+  padding:7px 16px; border-radius:7px; border:1px solid var(--bd);
+  background:var(--bg3); color:var(--tx2); font-size:12px;
+  cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+}
+.etab.on{background:var(--ac); border-color:var(--ac); color:#000; font-weight:700;}
+.exta{
+  width:100%; background:var(--bg3); border:1px solid var(--bd);
+  border-radius:9px; padding:14px; color:var(--tx); font-size:12px;
+  font-family:'Courier New',monospace; resize:none; outline:none;
+  line-height:1.75; min-height:250px;
+}
+.exta:focus{border-color:var(--ac);}
+.exnote{
+  margin-top:12px; padding:10px 14px;
+  background:rgba(0,204,255,.05); border:1px solid rgba(0,204,255,.2);
+  border-radius:9px; font-size:11px; color:var(--tx2); line-height:1.7;
+}
+.exnote strong{color:var(--ac);}
+.ex-pad{padding:16px 20px;}
+
+/* ══════════════ VALIDATION MODAL ══════════════ */
+.val-section{padding:14px 20px; border-bottom:1px solid var(--bd);}
+.val-section:last-child{border-bottom:none;}
+.val-sec-title{
+  font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase; color:var(--tx3); margin-bottom:10px;
+}
+.val-item{display:flex; align-items:flex-start; gap:10px; padding:5px 0; font-size:14px; line-height:1.5; color:var(--tx);}
+.val-dot{
+  width:20px; height:20px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; margin-top:1px;
+}
+.val-dot.ok  {background:rgba(0,230,118,.15); color:var(--grn);}
+.val-dot.ng  {background:rgba(255,51,85,.15);  color:var(--red);}
+.val-dot.warn{background:rgba(255,179,0,.15);  color:var(--warn);}
+.val-dot.info{background:rgba(0,204,255,.15);  color:var(--ac);}
+
+/* ══════════════ TOAST ══════════════ */
+.toasts{position:fixed; bottom:70px; right:16px; z-index:300; display:flex; flex-direction:column; gap:7px; pointer-events:none;}
+.toast{
+  background:var(--surf); border:1px solid var(--bd);
+  border-radius:9px; padding:10px 16px; font-size:13px;
+  animation:tI .2s ease, tO .2s ease 2.8s forwards;
+}
+.toast.ok  {border-color:var(--grn); color:var(--grn);}
+.toast.err {border-color:var(--red); color:var(--red);}
+.toast.info{border-color:var(--ac);  color:var(--ac);}
+@keyframes tI{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes tO{from{opacity:1}to{opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">UCG <span>DECK</span></div>
+  <div class="hpills">
+    <div class="hpill" id="hpill"><span>合計</span><b id="htot">0</b><span>/50</span></div>
+    <div class="hpill"><b id="hhero">0</b><span>種</span></div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tabs">
+  <button class="tab on" id="tab-cards" onclick="goTab('cards')">🃏 カード</button>
+  <button class="tab"    id="tab-deck"  onclick="goTab('deck')">⚡ デッキ<span class="tbadge grn" id="dbadge" style="display:none">0</span></button>
+</div>
+
+<div class="panels">
+
+  <!-- ── CARDS PANEL ── -->
+  <div class="panel on" id="panel-cards">
+    <div class="search-bar">
+      <div class="si-wrap">
+        <svg class="si-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9 3a6 6 0 100 12A6 6 0 009 3zM2 9a7 7 0 1112.45 4.39l3.33 3.33a.75.75 0 11-1.06 1.06l-3.33-3.33A7 7 0 012 9z" clip-rule="evenodd"/>
+        </svg>
+        <input class="sinput" id="kw" placeholder="カード名・キャラ名・カードNo…" oninput="scheduleFilter()">
+      </div>
+      <button class="filter-btn" id="filterBtn" onclick="openFilterModal()">
+        🔍 絞り込み<div class="filter-badge-dot" id="filterDot"></div>
+      </button>
+    </div>
+    <div id="afbar" class="af-bar" style="display:none"></div>
+
+    <!-- Load -->
+    <div class="load-box" id="loadBox">
+      <div class="spinner"></div>
+      <div id="loadMsg">カードデータを読み込み中…</div>
+      <div class="pbar-wrap"><div class="pbar" id="pbar" style="width:0"></div></div>
+    </div>
+    <!-- Error -->
+    <div class="err-box" id="errBox" style="display:none">
+      <div class="err-icon">⚠️</div>
+      <div class="err-msg" id="errMsg"></div>
+      <button class="retry-btn" onclick="boot()">再読み込み</button>
+    </div>
+    <!-- Cards -->
+    <div class="cards-area" id="cardsArea" style="display:none">
+      <div class="rcnt" id="rcnt"></div>
+      <div id="cardSections"></div>
+      <div class="no-res" id="nores" style="display:none">
+        <div class="big">🃏</div><p>該当するカードが見つかりません</p>
+      </div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+
+  <!-- ── DECK PANEL ── -->
+  <div class="panel" id="panel-deck">
+    <div class="dk-panel">
+      <div class="dk-top">
+        <span style="font-size:17px;flex-shrink:0">⚡</span>
+        <input class="dk-ni" id="deckName" value="新規デッキ" maxlength="30">
+      </div>
+      <div class="dk-st">
+        <div class="dst lv1"><div class="n" id="ds1">0</div><div class="l">LV1</div></div>
+        <div class="dst lv2"><div class="n" id="ds2">0</div><div class="l">LV2</div></div>
+        <div class="dst lv3"><div class="n" id="ds3">0</div><div class="l">LV3</div></div>
+        <div class="dst sc" ><div class="n" id="dss">0</div><div class="l">シーン</div></div>
+      </div>
+      <div class="dk-pg">
+        <div class="dpi"><span>デッキ構成</span><span id="dpit">0/50</span></div>
+        <div class="dpb">
+          <div class="dps dps-lv1" id="pLv1" style="flex:0"></div>
+          <div class="dps dps-lv2" id="pLv2" style="flex:0"></div>
+          <div class="dps dps-lv3" id="pLv3" style="flex:0"></div>
+          <div class="dps dps-lv4" id="pLv4" style="flex:0"></div>
+          <div class="dps dps-sc"  id="pSc"  style="flex:0"></div>
+          <div class="dps dps-kj"  id="pKj"  style="flex:0"></div>
+          <div class="dps dps-mk"  id="pMk"  style="flex:0"></div>
+        </div>
+      </div>
+      <div class="dk-btns">
+        <div class="btn"  onclick="openExp()">📋 出力</div>
+        <div class="btn p" onclick="openExp('ul')">📱 UL形式</div>
+        <div class="btn w" onclick="openValidation()">✔ 検証</div>
+        <div class="btn d" onclick="clearDeck()">🗑</div>
+      </div>
+      <div id="valBanner" class="val-banner"></div>
+      <div class="dk-list" id="dklist">
+        <div class="dk-empty">
+          <div class="ico">🃏</div>
+          <p>「カード」タブでカードをタップして<br>デッキに追加しよう</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panels -->
+
+<!-- ══ FILTER MODAL ══ -->
+<div class="overlay" id="filterOv">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="mh">
+      <h2>🔍 絞り込み条件</h2>
+      <button class="mc" onclick="closeFilterModal()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="fp">
+
+        <!-- フリーワード検索 -->
+        <div class="fsec">
+          <div class="ftitle">フリーワード検索</div>
+          <div class="si-wrap" style="position:relative">
+            <svg class="si-icon" viewBox="0 0 20 20" fill="currentColor" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--tx2);pointer-events:none">
+              <path fill-rule="evenodd" d="M9 3a6 6 0 100 12A6 6 0 009 3zM2 9a7 7 0 1112.45 4.39l3.33 3.33a.75.75 0 11-1.06 1.06l-3.33-3.33A7 7 0 012 9z" clip-rule="evenodd"/>
+            </svg>
+            <input class="sinput" id="kwModal" placeholder="カード名・カードNo…" style="padding-left:32px">
+          </div>
+        </div>
+
+        <!-- カード種類 -->
+        <div class="fsec">
+          <div class="ftitle">カード種類</div>
+          <div class="chips">
+            <div class="chip on" data-g="feat" data-v=""           onclick="sc('feat','',this)">すべて</div>
+            <div class="chip"    data-g="feat" data-v="ultra_hero" onclick="sc('feat','ultra_hero',this)">ヒーロー</div>
+            <div class="chip kj" data-g="feat" data-v="kaiju"      onclick="sc('feat','kaiju',this)">怪獣</div>
+            <div class="chip sc" data-g="feat" data-v="scene"      onclick="sc('feat','scene',this)">シーン</div>
+            <div class="chip"    data-g="feat" data-v="ultra_mech" onclick="sc('feat','ultra_mech',this)">メカ</div>
+          </div>
+        </div>
+
+        <!-- シーン選択時のみ表示 -->
+        <div id="sceneOnlySection" style="display:none">
+          <div class="fsec">
+            <div class="ftitle">ラウンド</div>
+            <div class="chips">
+              <div class="chip on" data-g="round" data-v="" onclick="sc('round','',this)">すべて</div>
+              <div class="chip" data-g="round" data-v="0"  onclick="sc('round','0',this)">R0</div>
+              <div class="chip" data-g="round" data-v="1"  onclick="sc('round','1',this)">R1</div>
+              <div class="chip" data-g="round" data-v="2"  onclick="sc('round','2',this)">R2</div>
+              <div class="chip" data-g="round" data-v="3"  onclick="sc('round','3',this)">R3</div>
+              <div class="chip" data-g="round" data-v="4"  onclick="sc('round','4',this)">R4</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 非シーン時に表示 -->
+        <div id="nonSceneSection">
+          <!-- キャラクター -->
+          <div class="fsec">
+            <div class="ftitle">キャラクター</div>
+            <select class="fselect" id="charSelect">
+              <option value="">すべて</option>
+            </select>
+          </div>
+          <!-- レベル -->
+          <div class="fsec">
+            <div class="ftitle">レベル</div>
+            <div class="chips">
+              <div class="chip on"  data-g="lv" data-v="" onclick="sc('lv','',this)">すべて</div>
+              <div class="chip lv1" data-g="lv" data-v="1" onclick="sc('lv','1',this)">LV1</div>
+              <div class="chip lv2" data-g="lv" data-v="2" onclick="sc('lv','2',this)">LV2</div>
+              <div class="chip lv3" data-g="lv" data-v="3" onclick="sc('lv','3',this)">LV3</div>
+              <div class="chip lv4" data-g="lv" data-v="4" onclick="sc('lv','4',this)">LV4</div>
+            </div>
+          </div>
+          <!-- レアリティ -->
+          <div class="fsec">
+            <div class="ftitle">レアリティ</div>
+            <div class="chips">
+              <div class="chip on" data-g="rar" data-v=""        onclick="sc('rar','',this)">すべて</div>
+              <div class="chip"    data-g="rar" data-v="400_rrr" onclick="sc('rar','400_rrr',this)">RRR</div>
+              <div class="chip"    data-g="rar" data-v="500_rr"  onclick="sc('rar','500_rr',this)">RR</div>
+              <div class="chip"    data-g="rar" data-v="600_r"   onclick="sc('rar','600_r',this)">R</div>
+              <div class="chip"    data-g="rar" data-v="800_u"   onclick="sc('rar','800_u',this)">U</div>
+              <div class="chip"    data-g="rar" data-v="900_c"   onclick="sc('rar','900_c',this)">C</div>
+            </div>
+          </div>
+          <!-- 収録弾 -->
+          <div class="fsec">
+            <div class="ftitle">収録弾</div>
+            <div class="chips">
+              <div class="chip on" data-g="bun" data-v=""      onclick="sc('bun','',this)">すべて</div>
+              <div class="chip" data-g="bun" data-v="SD01"  onclick="sc('bun','SD01',this)">SD01</div>
+              <div class="chip" data-g="bun" data-v="SD02"  onclick="sc('bun','SD02',this)">SD02</div>
+              <div class="chip" data-g="bun" data-v="SD03"  onclick="sc('bun','SD03',this)">SD03</div>
+              <div class="chip" data-g="bun" data-v="BP01"  onclick="sc('bun','BP01',this)">BP01</div>
+              <div class="chip" data-g="bun" data-v="BP02"  onclick="sc('bun','BP02',this)">BP02</div>
+              <div class="chip" data-g="bun" data-v="BP03"  onclick="sc('bun','BP03',this)">BP03</div>
+              <div class="chip" data-g="bun" data-v="BP04"  onclick="sc('bun','BP04',this)">BP04</div>
+              <div class="chip" data-g="bun" data-v="BP05"  onclick="sc('bun','BP05',this)">BP05</div>
+              <div class="chip" data-g="bun" data-v="BP06"  onclick="sc('bun','BP06',this)">BP06</div>
+              <div class="chip" data-g="bun" data-v="BP07"  onclick="sc('bun','BP07',this)">BP07</div>
+              <div class="chip" data-g="bun" data-v="EXD01" onclick="sc('bun','EXD01',this)">EXD01</div>
+              <div class="chip" data-g="bun" data-v="EXS01" onclick="sc('bun','EXS01',this)">EXS01</div>
+              <div class="chip" data-g="bun" data-v="EXS02" onclick="sc('bun','EXS02',this)">EXS02</div>
+              <div class="chip" data-g="bun" data-v="UD01"  onclick="sc('bun','UD01',this)">UD01</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="filter-apply-btn" onclick="applyFilterAndClose()">この条件で検索する →</button>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="filter-reset-btn" onclick="resetFilters()">リセット</button>
+      <button class="filter-reset-btn" onclick="closeFilterModal()">閉じる</button>
+      <button class="filter-apply-btn" style="flex:2" onclick="applyFilterAndClose()">この条件で検索 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL MODAL ══ -->
+<div class="overlay" id="detailOv">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <!-- ヘッダー: カードNo + 閉じるボタン（常に見える位置） -->
+    <div class="mh" style="padding:10px 16px">
+      <h2 id="detailTitle" style="font-size:14px">カード詳細</h2>
+      <button class="mc" onclick="closeDetail()" style="font-size:28px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bg3);border:1px solid var(--bd)">✕</button>
+    </div>
+    <div class="mb" id="detailBody"></div>
+    <!-- 下部: 枚数コントロール（常にフッターとして固定） -->
+    <div class="detail-ctrl">
+      <div class="dc-btn minus" onclick="detailRemove()">−</div>
+      <div style="text-align:center">
+        <div class="dc-cnt zero" id="dcCnt">0</div>
+        <div class="dc-label">デッキ内枚数 / 4</div>
+      </div>
+      <div class="dc-btn" onclick="detailAdd()">＋</div>
+      <button onclick="closeDetail()" style="padding:0 16px;height:44px;border-radius:10px;border:1px solid var(--bd);background:var(--bg3);color:var(--tx2);font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EXPORT MODAL ══ -->
+<div class="overlay" id="expOv">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="mh"><h2>📋 デッキ出力</h2><button class="mc" onclick="closeOv('expOv')">✕</button></div>
+    <div class="mb">
+      <div class="ex-pad">
+        <div class="etabs">
+          <button class="etab on" onclick="setExpTab('ul',this)">ウルトラリーグ</button>
+          <button class="etab"    onclick="setExpTab('text',this)">テキスト</button>
+          <button class="etab"    onclick="setExpTab('csv',this)">CSV</button>
+        </div>
+        <textarea class="exta" id="exta" readonly></textarea>
+        <div class="exnote" id="exnote"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <div class="btn" style="flex:0;min-width:90px" onclick="copyExp()">📋 コピー</div>
+      <div class="btn p" style="flex:0;min-width:90px" onclick="closeOv('expOv')">閉じる</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VALIDATION MODAL ══ -->
+<div class="overlay" id="valOv">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="mh"><h2>✔ デッキ検証</h2><button class="mc" onclick="closeOv('valOv')">✕</button></div>
+    <div class="mb" id="valBody"></div>
+    <div class="mf">
+      <div class="btn p" style="flex:0;min-width:90px" onclick="closeOv('valOv')">閉じる</div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG & STATE
+// ══════════════════════════════════════════
+const API_BASE = 'http://api.ultraman-cardgame.com/api/v1/jp/cards';
+const PROXIES = [
+  u => u,
+  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+let proxyIdx = -1;
+const PER_PAGE = 24; // 24 fits well in both portrait/scene grids
+let allCards=[], filtered=[], deck={}, page=1;
+let filters={feat:'',lv:'',rar:'',bun:'',char:'',round:''};
+let expTab='ul', ftimer=null, detailId=null;
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+function goTab(name){
+  ['cards','deck'].forEach(n=>{
+    document.getElementById('tab-'+n).classList.toggle('on',n===name);
+    document.getElementById('panel-'+n).classList.toggle('on',n===name);
+  });
+  document.getElementById('panel-'+name).scrollTop=0;
+}
+
+// ══════════════════════════════════════════
+// FETCH
+// ══════════════════════════════════════════
+async function tryFetch(url){
+  const c=new AbortController(), t=setTimeout(()=>c.abort(),12000);
+  try{
+    const r=await fetch(url,{signal:c.signal});
+    clearTimeout(t);
+    if(!r.ok)return null;
+    const txt=await r.text();
+    if(!txt||!txt.trim().startsWith('{'))return null;
+    const j=JSON.parse(txt);
+    return j.data?j:null;
+  }catch{clearTimeout(t);return null;}
+}
+async function fetchPage(n){
+  const url=`${API_BASE}?page=${n}`;
+  if(proxyIdx>=0){const r=await tryFetch(PROXIES[proxyIdx](url));if(r)return r;proxyIdx=-1;}
+  for(let i=0;i<PROXIES.length;i++){const r=await tryFetch(PROXIES[i](url));if(r){proxyIdx=i;return r;}}
+  throw new Error('APIに接続できませんでした。\nHTMLファイルをダウンロードしてブラウザで直接開いてください。');
+}
+async function boot(){
+  allCards=[];proxyIdx=-1;
+  show('loadBox');hide('errBox');hide('cardsArea');
+  document.getElementById('pbar').style.width='0';
+  document.getElementById('loadMsg').textContent='接続中…';
+  try{
+    const f=await fetchPage(1);
+    const last=f.meta.last_page;
+    allCards=f.data; prog(1,last);
+    for(let s=2;s<=last;s+=6){
+      const end=Math.min(s+5,last);
+      const rs=await Promise.all(Array.from({length:end-s+1},(_,i)=>fetchPage(s+i)));
+      rs.forEach(r=>{if(r)allCards=allCards.concat(r.data);});
+      prog(end,last);
+    }
+    hide('loadBox');show('cardsArea');
+    buildCharSelect();
+    applyFilter();
+    toast(`${allCards.length}枚のカードを読み込みました`,'ok');
+  }catch(e){
+    hide('loadBox');show('errBox');
+    document.getElementById('errMsg').textContent=e.message;
+  }
+}
+function prog(d,t){
+  document.getElementById('pbar').style.width=Math.round(d/t*100)+'%';
+  document.getElementById('loadMsg').textContent=`読み込み中… ${d}/${t}ページ (${allCards.length}枚)`;
+}
+function show(id){document.getElementById(id).style.display='block';}
+function hide(id){document.getElementById(id).style.display='none';}
+
+// ══════════════════════════════════════════
+// FILTER MODAL
+// ══════════════════════════════════════════
+function openFilterModal(){
+  // Sync chip/select UI to current filters
+  ['feat','lv','rar','bun','round'].forEach(g=>{
+    document.querySelectorAll(`[data-g="${g}"]`).forEach(c=>{
+      c.classList.toggle('on', c.dataset.v===filters[g]);
+    });
+  });
+  const sel=document.getElementById('charSelect');
+  if(sel) sel.value=filters.char||'';
+  // Sync freeword
+  const kwModal=document.getElementById('kwModal');
+  if(kwModal) kwModal.value=document.getElementById('kw').value;
+  updateSceneOnlyVisibility();
+  document.getElementById('filterOv').classList.add('open');
+}
+function closeFilterModal(){document.getElementById('filterOv').classList.remove('open');}
+function applyFilterAndClose(){
+  // Sync freeword back to search bar
+  const kwModal=document.getElementById('kwModal');
+  if(kwModal) document.getElementById('kw').value=kwModal.value;
+  // Read char select
+  const sel=document.getElementById('charSelect');
+  if(sel) filters.char=sel.value;
+  closeFilterModal();
+  page=1;applyFilter();
+}
+function resetFilters(){
+  Object.keys(filters).forEach(k=>filters[k]='');
+  document.querySelectorAll('[data-g]').forEach(el=>{
+    el.classList.toggle('on', el.dataset.v==='');
+  });
+  const sel=document.getElementById('charSelect');
+  if(sel) sel.value='';
+  document.getElementById('kw').value='';
+  const kwModal=document.getElementById('kwModal');
+  if(kwModal) kwModal.value='';
+  updateSceneOnlyVisibility();
+}
+// When feat chip changes in modal, show/hide scene-specific options
+function sc(g,v,el){
+  document.querySelectorAll(`[data-g="${g}"]`).forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  filters[g]=v;
+  if(g==='feat') updateSceneOnlyVisibility();
+  updateFilterIndicator();
+}
+function updateSceneOnlyVisibility(){
+  const isScene = filters.feat==='scene';
+  document.getElementById('sceneOnlySection').style.display = isScene ? 'block' : 'none';
+  document.getElementById('nonSceneSection').style.display  = isScene ? 'none'  : 'block';
+}
+function updateFilterIndicator(){
+  const n=Object.values(filters).filter(v=>v).length;
+  const dot=document.getElementById('filterDot');
+  const btn=document.getElementById('filterBtn');
+  dot.classList.toggle('show',n>0);
+  btn.classList.toggle('active',n>0);
+}
+// Build character list from loaded cards and populate select
+function buildCharSelect(){
+  const chars=[...new Set(
+    allCards
+      .filter(c=>c.feature?.value==='ultra_hero'||c.feature?.value==='kaiju'||c.feature?.value==='ultra_mech')
+      .map(c=>c.detail?.character_name)
+      .filter(Boolean)
+  )].sort((a,b)=>a.localeCompare(b,'ja'));
+  const sel=document.getElementById('charSelect');
+  if(!sel)return;
+  sel.innerHTML='<option value="">すべて</option>';
+  chars.forEach(ch=>{
+    const opt=document.createElement('option');
+    opt.value=ch;opt.textContent=ch;
+    sel.appendChild(opt);
+  });
+}
+function scheduleFilter(){clearTimeout(ftimer);ftimer=setTimeout(()=>{page=1;applyFilter();},220);}
+
+function applyFilter(){
+  const kw=document.getElementById('kw').value.toLowerCase();
+  filtered=allCards.filter(c=>{
+    if(filters.feat&&c.feature?.value!==filters.feat)return false;
+    if(filters.lv&&String(c.level)!==filters.lv)return false;
+    if(filters.rar&&c.rarity?.value!==filters.rar)return false;
+    if(filters.bun&&!(c.display_card_bundle_names||[]).join(' ').includes(filters.bun))return false;
+    if(filters.char&&(c.detail?.character_name||'')!==filters.char)return false;
+    if(filters.round&&String(c.round)!==filters.round)return false;
+    if(kw){
+      const n=(c.detail?.name||'').toLowerCase();
+      const ch=(c.detail?.character_name||'').toLowerCase();
+      const tn=(c.detail?.type_name||'').toLowerCase();
+      const id=(c.number||'').toLowerCase();
+      if(!n.includes(kw)&&!ch.includes(kw)&&!tn.includes(kw)&&!id.includes(kw))return false;
+    }
+    return true;
+  });
+  page=1;renderGrid();renderAF();updateFilterIndicator();
+}
+
+function renderAF(){
+  const af=document.getElementById('afbar');
+  const kw=document.getElementById('kw').value;
+  const items=[];
+  const lbl={
+    feat:{ultra_hero:'ヒーロー',kaiju:'怪獣',scene:'シーン',ultra_mech:'メカ'},
+    lv:{1:'LV1',2:'LV2',3:'LV3',4:'LV4'},
+    rar:{'400_rrr':'RRR','500_rr':'RR','600_r':'R','800_u':'U','900_c':'C'},
+    bun:{},char:{},round:{0:'R0',1:'R1',2:'R2',3:'R3',4:'R4'}
+  };
+  Object.entries(filters).forEach(([k,v])=>{if(v)items.push({k,v,l:lbl[k]?.[v]||v});});
+  if(kw)items.push({k:'kw',v:kw,l:`"${kw}"`});
+  if(!items.length){af.style.display='none';return;}
+  af.style.display='flex';
+  af.innerHTML='<span style="font-size:11px;color:var(--tx3);white-space:nowrap">絞り込み中：</span>';
+  items.forEach(item=>{
+    const ch=document.createElement('div');ch.className='af-chip';
+    ch.innerHTML=`${item.l}<span class="x">✕</span>`;
+    ch.onclick=()=>{
+      if(item.k==='kw'){document.getElementById('kw').value='';}
+      else{
+        filters[item.k]='';
+        if(item.k==='char'){
+          const sel=document.getElementById('charSelect');if(sel)sel.value='';
+        } else if(item.k==='round'){
+          document.querySelectorAll('[data-g="round"]').forEach(c=>c.classList.toggle('on',c.dataset.v===''));
+        } else {
+          document.querySelectorAll(`[data-g="${item.k}"]`).forEach(c=>c.classList.toggle('on',c.dataset.v===''));
+        }
+      }
+      applyFilter();
+    };
+    af.appendChild(ch);
+  });
+}
+
+// ══════════════════════════════════════════
+// RENDER GRID  — portrait + landscape scene
+// ══════════════════════════════════════════
+function renderGrid(){
+  const sections=document.getElementById('cardSections');
+  const nores=document.getElementById('nores');
+  const pager=document.getElementById('pager');
+  document.getElementById('rcnt').textContent=`${filtered.length.toLocaleString()}件`;
+
+  if(!filtered.length){sections.innerHTML='';nores.style.display='block';pager.innerHTML='';return;}
+  nores.style.display='none';
+
+  const totalP=Math.ceil(filtered.length/PER_PAGE);
+  if(page>totalP)page=totalP;
+  const slice=filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
+
+  // Separate scene from non-scene
+  const normal=slice.filter(c=>c.feature?.value!=='scene');
+  const scene=slice.filter(c=>c.feature?.value==='scene');
+
+  sections.innerHTML='';
+
+  // Non-scene cards (portrait grid)
+  if(normal.length){
+    const grid=document.createElement('div');grid.className='cgrid';
+    normal.forEach(card=>grid.appendChild(makeCard(card)));
+    sections.appendChild(grid);
+  }
+
+  // Scene cards (landscape grid, with section header if mixed)
+  if(scene.length){
+    if(normal.length){
+      const hdr=document.createElement('div');
+      hdr.className='card-section-title';
+      hdr.textContent='シーンカード';
+      sections.appendChild(hdr);
+    }
+    const grid=document.createElement('div');grid.className='cgrid-scene';
+    scene.forEach(card=>grid.appendChild(makeCard(card,true)));
+    sections.appendChild(grid);
+  }
+
+  // pager
+  if(totalP<=1){pager.innerHTML='';return;}
+  pager.innerHTML='';
+  const mkb=(txt,tgt,dis=false,on=false)=>{
+    const b=document.createElement('button');b.className='pb'+(on?' on':'');b.textContent=txt;b.disabled=dis;
+    if(!dis)b.onclick=()=>{page=tgt;renderGrid();document.getElementById('panel-cards').scrollTop=0;};
+    return b;
+  };
+  pager.appendChild(mkb('◀',page-1,page<=1));
+  const ps=new Set([1,totalP]);
+  for(let p=Math.max(1,page-2);p<=Math.min(totalP,page+2);p++)ps.add(p);
+  let last=0;[...ps].sort((a,b)=>a-b).forEach(p=>{
+    if(last&&p-last>1){const s=document.createElement('span');s.className='psep';s.textContent='…';pager.appendChild(s);}
+    pager.appendChild(mkb(p,p,false,p===page));last=p;
+  });
+  pager.appendChild(mkb('▶',page+1,page>=totalP));
+  const ct=document.createElement('span');ct.className='pcnt';ct.textContent=`${filtered.length}件`;pager.appendChild(ct);
+}
+
+function makeCard(card, isScene=false){
+  const cnt=deck[card.id]||0;
+  const name=card.detail?.name||card.number;
+  const tyn=card.detail?.type_name||'';
+  const feat=card.feature?.value||'';
+  const lv=card.level;
+  const rar=card.rarity?.description||'';
+  const bp1=card.battle_power_1;
+  const thumb=card.detail?.thumbnail_image_url||'';
+
+  const el=document.createElement('div');
+  el.className='card'+(cnt>0?(cnt>=4?' mx':' dk'):'');
+
+  const imgCls=isScene?'cimg cimg-land':'cimg cimg-port';
+  const phCls=isScene?'cph cph-land':'cph cph-port';
+
+  el.innerHTML=`
+    <div class="card-img-area" onclick="openDetail(${card.id})">
+      <div class="info-btn" onclick="openDetail(${card.id});event.stopPropagation()">i</div>
+      ${cnt>0?`<div class="cbadge">${cnt}</div>`:''}
+      ${thumb
+        ?`<img class="${imgCls}" src="${thumb}" alt="${name}" loading="lazy">`
+        :`<div class="${phCls}">${fe(feat)}</div>`}
+    </div>
+    <div class="card-ctrl">
+      <div class="cc-btn minus" onclick="removeCard(${card.id})">−</div>
+      <div class="cc-cnt${cnt===0?' zero':''}">${cnt}</div>
+      <div class="cc-btn" onclick="addCard(${card.id})">＋</div>
+    </div>
+    <div class="cbody">
+      <div class="cname">${name}</div>
+      ${tyn?`<div class="ctyn">${tyn}</div>`:''}
+      <div class="ctags">
+        <span class="tag ${tc(feat,lv)}">${tl(feat,lv)}</span>
+        <span class="tag t-r">${rar}</span>
+        ${bp1?`<span class="cbp">${bp1>=1000?(bp1/1000).toFixed(0)+'k':bp1}</span>`:''}
+      </div>
+    </div>`;
+  return el;
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function fe(f){return{ultra_hero:'⚡',kaiju:'👾',scene:'📜',ultra_mech:'🤖'}[f]||'🃏';}
+function gk(feat,lv){if(feat==='scene')return'sc';if(feat==='kaiju')return'kj';if(feat==='ultra_mech')return'mk';return'lv'+lv;}
+function tc(feat,lv){if(feat==='scene')return't-sc';if(feat==='kaiju')return't-kj';if(feat==='ultra_mech')return't-mk';return't-lv'+lv;}
+function tl(feat,lv){if(feat==='scene')return'シーン';if(feat==='kaiju')return'怪獣';if(feat==='ultra_mech')return'メカ';return'LV'+lv;}
+function gc(id){return allCards.find(c=>c.id===id);}
+function tot(){return Object.values(deck).reduce((a,b)=>a+b,0);}
+function bpFmt(v){return v?v.toLocaleString():'-';}
+
+// ══════════════════════════════════════════
+// DECK OPS
+// ══════════════════════════════════════════
+function addCard(id){
+  const c=gc(id);if(!c)return;
+  if((deck[id]||0)>=4){toast('このカードはこれ以上追加できません','err');return;}
+  if(tot()>=50){toast('デッキは50枚が上限です','err');return;}
+  deck[id]=(deck[id]||0)+1;
+  renderGrid();renderDeck();
+  if(detailId===id)updateDCtrl();
+}
+function removeCard(id){
+  if(!deck[id])return;
+  if(--deck[id]<=0)delete deck[id];
+  renderGrid();renderDeck();
+  if(detailId===id)updateDCtrl();
+}
+function clearDeck(){
+  if(!Object.keys(deck).length)return;
+  if(!confirm('デッキをリセットしますか？'))return;
+  deck={};renderGrid();renderDeck();toast('リセットしました','info');
+}
+
+// ══════════════════════════════════════════
+// DETAIL MODAL
+// ══════════════════════════════════════════
+function openDetail(id){
+  const c=gc(id);if(!c)return;
+  detailId=id;
+  const name=c.detail?.name||c.number;
+  const tyn=c.detail?.type_name||'';
+  const feat=c.feature?.value||'';
+  const lv=c.level;
+  const rar=c.rarity?.description||'';
+  const effect=c.detail?.effect||'';
+  const flavor=c.detail?.flavor_text||'';
+  const imgUrl=c.detail?.image_url||c.detail?.thumbnail_image_url||'';
+  const char=c.detail?.character_name||'';
+  const bundles=(c.display_card_bundle_names||[]).join(' / ');
+  const typeDesc=c.type?.description||'';
+  const bp1=c.battle_power_1, bp2=c.battle_power_2, bp3=c.battle_power_3;
+  const isScene=feat==='scene';
+  const imgW=isScene?'140px':'90px';
+  const imgH=isScene?'100px':'120px';
+
+  // Round: from API field, or extract from effect text
+  let rounds=[];
+  if(isScene){
+    // API round field (single number = minimum round to play)
+    if(c.round!==null&&c.round!==undefined) rounds.push(c.round);
+    // Also extract [ラウンドN] tags from effect text for display
+    const roundMatches=[...(effect||'').matchAll(/\[ラウンド(\d)\]/g)];
+    roundMatches.forEach(m=>{const n=Number(m[1]);if(!rounds.includes(n))rounds.push(n);});
+    rounds.sort((a,b)=>a-b);
+  }
+
+  document.getElementById('detailTitle').textContent=c.number;
+
+  let bpHtml='';
+  if(bp1||bp2||bp3){
+    bpHtml=`<div class="bp-grid">
+      <div class="bp-cell${bp1?' hi':''}"><div class="bl">SINGLE</div><div class="bv">${bpFmt(bp1)}</div></div>
+      <div class="bp-cell${bp2?' hi':''}"><div class="bl">DOUBLE</div><div class="bv">${bpFmt(bp2)}</div></div>
+      <div class="bp-cell${bp3?' hi':''}"><div class="bl">TRIPLE</div><div class="bv">${bpFmt(bp3)}</div></div>
+    </div>`;
+  }
+
+  // Round pips display for scene cards
+  let roundHtml='';
+  if(isScene&&rounds.length>0){
+    const minRound=c.round!==null&&c.round!==undefined?c.round:rounds[0];
+    const pips=Array.from({length:4},(_,i)=>{
+      const n=i; // rounds 0-3
+      const active=rounds.includes(n);
+      return `<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;${active?'background:var(--sc);color:#000;':'background:var(--bg3);color:var(--tx3);border:1px solid var(--bd);'}">${n}</div>`;
+    }).join('');
+    roundHtml=`
+      <div class="detail-sec" style="margin-top:0">
+        <div class="detail-sec-t">ラウンド効果</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          ${pips}
+          <span style="font-size:11px;color:var(--tx2);margin-left:4px">発動ラウンド</span>
+        </div>
+        ${c.round!==null&&c.round!==undefined?`<div style="font-size:11px;color:var(--tx2)">プレイ可能：ラウンド <strong style="color:var(--sc)">${minRound}</strong> 以降</div>`:''}
+      </div>`;
+  }
+
+  document.getElementById('detailBody').innerHTML=`
+    <div class="detail-top">
+      ${imgUrl
+        ?`<div class="detail-img" style="width:${imgW}"><img src="${imgUrl}" alt="${name}" style="width:${imgW};height:${imgH};object-fit:cover"></div>`
+        :`<div class="detail-img-ph" style="width:${imgW};height:${imgH};font-size:36px">${fe(feat)}</div>`}
+      <div class="detail-meta">
+        <div class="detail-name">${name}</div>
+        ${tyn?`<div class="detail-tyn">${tyn}</div>`:''}
+        <div class="detail-tags">
+          <span class="tag ${tc(feat,lv)}">${tl(feat,lv)}</span>
+          <span class="tag t-r">${rar}</span>
+          ${typeDesc?`<span class="tag t-r">${typeDesc}</span>`:''}
+        </div>
+        ${bpHtml}
+      </div>
+    </div>
+    <div class="detail-body">
+      ${roundHtml}
+      ${effect&&effect!=='-'?`
+      <div class="detail-sec">
+        <div class="detail-sec-t">効果テキスト</div>
+        <div class="detail-effect">${effect.replace(/\n/g,'<br>').replace(/\[ラウンド(\d)\]/g,'<span style="background:rgba(45,212,191,.15);color:var(--sc);padding:1px 5px;border-radius:3px;font-weight:700;font-family:\'Rajdhani\',sans-serif;">[ラウンド$1]</span>')}</div>
+      </div>`:''}
+      ${flavor?`
+      <div class="detail-sec">
+        <div class="detail-sec-t">フレーバーテキスト</div>
+        <div class="detail-flavor">${flavor}</div>
+      </div>`:''}
+      <div class="detail-sec">
+        <div class="detail-sec-t">カード情報</div>
+        <div class="detail-row">
+          ${char?`<div class="detail-item">キャラ<span>${char}</span></div>`:''}
+          ${lv?`<div class="detail-item">レベル<span>${lv}</span></div>`:''}
+          <div class="detail-item">レアリティ<span>${rar}</span></div>
+          ${bundles?`<div class="detail-item">収録弾<span>${bundles}</span></div>`:''}
+        </div>
+      </div>
+    </div>`;
+
+  updateDCtrl();
+  document.getElementById('detailOv').classList.add('open');
+}
+function updateDCtrl(){
+  const cnt=deck[detailId]||0;
+  const el=document.getElementById('dcCnt');
+  el.textContent=cnt; el.className='dc-cnt'+(cnt===0?' zero':'');
+}
+function detailAdd(){addCard(detailId);}
+function detailRemove(){removeCard(detailId);}
+function closeDetail(){document.getElementById('detailOv').classList.remove('open');detailId=null;}
+
+// ══════════════════════════════════════════
+// RENDER DECK
+// ══════════════════════════════════════════
+function renderDeck(){
+  const t=tot();
+  document.getElementById('htot').textContent=t;
+  document.getElementById('hpill').className='hpill'+(t===50?' full':t>50?' over':'');
+  const heroes=new Set(Object.keys(deck).map(id=>{const c=gc(Number(id));return c?.feature?.value==='ultra_hero'?c.detail?.character_name:null;}).filter(Boolean));
+  document.getElementById('hhero').textContent=heroes.size;
+  const cnt={lv1:0,lv2:0,lv3:0,lv4:0,sc:0,kj:0,mk:0};
+  Object.entries(deck).forEach(([id,n])=>{const c=gc(Number(id));if(c){const k=gk(c.feature?.value,c.level);cnt[k]=(cnt[k]||0)+n;}});
+  document.getElementById('ds1').textContent=cnt.lv1;
+  document.getElementById('ds2').textContent=cnt.lv2;
+  document.getElementById('ds3').textContent=cnt.lv3;
+  document.getElementById('dss').textContent=cnt.sc;
+  document.getElementById('dpit').textContent=`${t}/50`;
+  [{k:'lv1',i:'pLv1'},{k:'lv2',i:'pLv2'},{k:'lv3',i:'pLv3'},{k:'lv4',i:'pLv4'},{k:'sc',i:'pSc'},{k:'kj',i:'pKj'},{k:'mk',i:'pMk'}]
+    .forEach(({k,i})=>document.getElementById(i).style.flex=cnt[k]||0);
+  const db=document.getElementById('dbadge');
+  if(t>0){db.style.display='inline';db.textContent=t;}else db.style.display='none';
+
+  // quick val banner
+  const vb=document.getElementById('valBanner');
+  if(t===0){vb.style.display='none';}else{
+    const {errors,warnings}=quickVal();
+    if(errors.length){
+      vb.className='val-banner ng';vb.style.display='block';
+      vb.innerHTML=`<div class="val-title">⚠ ${errors.length}件のエラー</div>${errors.slice(0,3).map(e=>`<div>・${e}</div>`).join('')}`;
+    }else if(warnings.length){
+      vb.className='val-banner warn';vb.style.display='block';
+      vb.innerHTML=`<div class="val-title">ℹ ${warnings.length}件の注意</div>${warnings.slice(0,2).map(w=>`<div>・${w}</div>`).join('')}`;
+    }else if(t===50){
+      vb.className='val-banner ok';vb.style.display='block';
+      vb.innerHTML=`<div class="val-title">✔ デッキ完成！50枚・問題なし</div>`;
+    }else{vb.style.display='none';}
+  }
+
+  // deck list
+  const el=document.getElementById('dklist');
+  if(!Object.keys(deck).length){
+    el.innerHTML='<div class="dk-empty"><div class="ico">🃏</div><p>「カード」タブでカードをタップして追加しよう</p></div>';return;
+  }
+  const GRPS=[
+    {k:'lv1',l:'LV1 ウルトラヒーロー'},{k:'lv2',l:'LV2 ウルトラヒーロー'},
+    {k:'lv3',l:'LV3 ウルトラヒーロー'},{k:'lv4',l:'LV4 ウルトラヒーロー'},
+    {k:'mk',l:'ウルトラメカ'},{k:'sc',l:'シーンカード'},{k:'kj',l:'怪獣カード'}
+  ];
+  el.innerHTML='';
+  GRPS.forEach(g=>{
+    const rows=Object.entries(deck)
+      .filter(([id])=>{const c=gc(Number(id));return c&&gk(c.feature?.value,c.level)===g.k;})
+      .map(([id,n])=>({c:gc(Number(id)),n,id:Number(id)}))
+      .sort((a,b)=>a.c.number.localeCompare(b.c.number));
+    if(!rows.length)return;
+    const grp=document.createElement('div');grp.className='dk-grp';
+    grp.innerHTML=`<div class="dkt ${g.k}">${g.l} (${rows.reduce((a,r)=>a+r.n,0)})</div>`;
+    rows.forEach(({c,n,id})=>{
+      const name=c.detail?.name||c.number;
+      const tyn=c.detail?.type_name||'';
+      const thumb=c.detail?.thumbnail_image_url||'';
+      const isScene=c.feature?.value==='scene';
+      const row=document.createElement('div');row.className='drow';
+      const thumbEl=thumb
+        ?`<img class="${isScene?'dth-land':'dth'}" src="${thumb}" loading="lazy" onclick="openDetail(${id})" style="cursor:pointer">`
+        :`<div class="dthph" onclick="openDetail(${id})" style="cursor:pointer">${fe(c.feature?.value)}</div>`;
+      row.innerHTML=`${thumbEl}
+        <div class="dri" onclick="openDetail(${id})" style="cursor:pointer">
+          <div class="drn">${name}${tyn?` <span style="color:var(--tx3);font-size:10px">${tyn}</span>`:''}</div>
+          <div class="drs">${c.number} · ${c.rarity?.description||''}</div>
+        </div>
+        <div class="drc">
+          <div class="rbtn rm" onclick="removeCard(${id});event.stopPropagation()">−</div>
+          <div class="rcnt">${n}</div>
+          <div class="rbtn" onclick="addCard(${id});event.stopPropagation()">＋</div>
+        </div>`;
+      grp.appendChild(row);
+    });
+    el.appendChild(grp);
+  });
+}
+
+// ══════════════════════════════════════════
+// VALIDATION
+// ══════════════════════════════════════════
+function quickVal(){
+  const t=tot();
+  const errors=[], warnings=[];
+  const cnt={lv1:0,lv2:0,lv3:0,lv4:0,sc:0,kj:0,mk:0};
+  Object.entries(deck).forEach(([id,n])=>{const c=gc(Number(id));if(c){const k=gk(c.feature?.value,c.level);cnt[k]=(cnt[k]||0)+n;}});
+  if(t!==50)errors.push(`合計${t}枚（50枚必要）`);
+  Object.entries(deck).forEach(([id,n])=>{if(n>4){const c=gc(Number(id));errors.push(`「${c?.detail?.name||id}」が${n}枚（最大4枚）`);}});
+  if(cnt.lv1===0)warnings.push('LV1カードが0枚です');
+  if((cnt.lv1+cnt.lv2+cnt.lv3+cnt.lv4)<20)warnings.push(`ウルトラヒーローが${cnt.lv1+cnt.lv2+cnt.lv3+cnt.lv4}枚と少ない`);
+  if(cnt.sc===0)warnings.push('シーンカードが0枚です');
+  const heroes=new Set(Object.keys(deck).map(id=>{const c=gc(Number(id));return c?.feature?.value==='ultra_hero'?c.detail?.character_name:null;}).filter(Boolean));
+  if(heroes.size>3)warnings.push(`ヒーロー${heroes.size}種類（デッキの一貫性に注意）`);
+  return{errors,warnings};
+}
+function openValidation(){
+  if(tot()===0){toast('デッキにカードを追加してから検証してください','err');return;}
+  const t=tot();
+  const cnt={lv1:0,lv2:0,lv3:0,lv4:0,sc:0,kj:0,mk:0};
+  Object.entries(deck).forEach(([id,n])=>{const c=gc(Number(id));if(c){const k=gk(c.feature?.value,c.level);cnt[k]=(cnt[k]||0)+n;}});
+  const heroes=new Set(Object.keys(deck).map(id=>{const c=gc(Number(id));return c?.feature?.value==='ultra_hero'?c.detail?.character_name:null;}).filter(Boolean));
+  const{errors,warnings}=quickVal();
+  const sc2=errors.length>0?'ng':warnings.length>0?'warn':'ok';
+  const si=errors.length>0?'✗':warnings.length>0?'⚠':'✔';
+  const sm=errors.length>0?`${errors.length}件のエラーがあります`:warnings.length>0?`${warnings.length}件の注意事項があります`:'全ての検証をパスしました！';
+  let html=`<div class="val-section"><div class="val-item"><div class="val-dot ${sc2}">${si}</div><div style="font-weight:700;font-size:14px">${sm}</div></div></div>`;
+  if(errors.length){html+=`<div class="val-section"><div class="val-sec-title">エラー（修正必須）</div>${errors.map(e=>`<div class="val-item"><div class="val-dot ng">✗</div><div>${e}</div></div>`).join('')}</div>`;}
+  if(warnings.length){html+=`<div class="val-section"><div class="val-sec-title">注意事項</div>${warnings.map(w=>`<div class="val-item"><div class="val-dot warn">!</div><div>${w}</div></div>`).join('')}</div>`;}
+  html+=`<div class="val-section"><div class="val-sec-title">デッキ内訳</div>
+    <div class="val-item"><div class="val-dot info">i</div><div>合計: <strong>${t}/50枚</strong> · 種類数: ${Object.keys(deck).length}種</div></div>
+    <div class="val-item"><div class="val-dot info">i</div><div>LV1: ${cnt.lv1} / LV2: ${cnt.lv2} / LV3: ${cnt.lv3} / LV4: ${cnt.lv4}</div></div>
+    <div class="val-item"><div class="val-dot info">i</div><div>シーン: ${cnt.sc} / 怪獣: ${cnt.kj} / メカ: ${cnt.mk}</div></div>
+    <div class="val-item"><div class="val-dot info">i</div><div>ヒーロー: ${heroes.size}種（${[...heroes].join('・')}）</div></div>
+  </div>`;
+  document.getElementById('valBody').innerHTML=html;
+  document.getElementById('valOv').classList.add('open');
+}
+
+// ══════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════
+function openExp(tab){
+  expTab=tab||'ul';
+  document.querySelectorAll('.etab').forEach((b,i)=>b.classList.toggle('on',['ul','text','csv'][i]===expTab));
+  buildExp(); document.getElementById('expOv').classList.add('open');
+}
+function setExpTab(tab,el){expTab=tab;document.querySelectorAll('.etab').forEach(b=>b.classList.remove('on'));el.classList.add('on');buildExp();}
+function buildExp(){
+  const name=document.getElementById('deckName').value, t=tot();
+  const go={lv1:0,lv2:1,lv3:2,lv4:3,mk:4,sc:5,kj:6};
+  const entries=Object.entries(deck).map(([id,n])=>({c:gc(Number(id)),n})).filter(e=>e.c)
+    .sort((a,b)=>(go[gk(a.c.feature?.value,a.c.level)]??9)-(go[gk(b.c.feature?.value,b.c.level)]??9)||a.c.number.localeCompare(b.c.number));
+  const fn=(c)=>(c.detail?.name||'')+(c.detail?.type_name?' '+c.detail.type_name:'');
+  if(expTab==='ul'){
+    const D='─'.repeat(50);
+    const lines=[`【デッキ名】${name}`,`【合計枚数】${t}枚`,'',D,'カードNo.           カード名                    枚数',D];
+    [{k:'lv1',l:'■ LV1'},{k:'lv2',l:'■ LV2'},{k:'lv3',l:'■ LV3'},{k:'lv4',l:'■ LV4'},{k:'mk',l:'■ メカ'},{k:'sc',l:'■ シーン'},{k:'kj',l:'■ 怪獣'}].forEach(g=>{
+      const es=entries.filter(e=>gk(e.c.feature?.value,e.c.level)===g.k);if(!es.length)return;
+      lines.push('',g.l);
+      es.forEach(({c,n})=>{const f=fn(c);lines.push(`${c.number.padEnd(20)}  ${(f.length>22?f.slice(0,21)+'…':f).padEnd(22)}  ×${n}`);});
+    });
+    lines.push('',D,`合計: ${t}/50枚`);
+    document.getElementById('exta').value=lines.join('\n');
+    document.getElementById('exnote').innerHTML=`<strong>📱 ULアプリへの登録：</strong>カードNo.を参照してアプリ内で検索・追加してください`;
+  }else if(expTab==='text'){
+    const lines=[`${name} (${t}/50枚)`,''];
+    entries.forEach(({c,n})=>lines.push(`${n}枚 ${c.number} ${fn(c)} [${c.rarity?.description||''}]`));
+    document.getElementById('exta').value=lines.join('\n');
+    document.getElementById('exnote').innerHTML='テキスト形式';
+  }else{
+    const lines=['枚数,カードNo,カード名,タイプ名,種類,LV,BP(SIN),BP(DBL),BP(TRP),レアリティ,収録弾'];
+    entries.forEach(({c,n})=>lines.push([n,c.number,`"${fn(c)}"`,c.detail?.type_name||'',c.feature?.description||'',c.level||0,c.battle_power_1||0,c.battle_power_2||0,c.battle_power_3||0,c.rarity?.description||'',(c.display_card_bundle_names||[]).join('|')].join(',')));
+    document.getElementById('exta').value=lines.join('\n');
+    document.getElementById('exnote').innerHTML='CSV形式';
+  }
+}
+function copyExp(){
+  navigator.clipboard.writeText(document.getElementById('exta').value).then(()=>toast('コピーしました！','ok')).catch(()=>{document.getElementById('exta').select();document.execCommand('copy');toast('コピーしました！','ok');});
+}
+
+// ══════════════════════════════════════════
+// TOAST & MODAL HELPERS
+// ══════════════════════════════════════════
+function toast(msg,type='info'){
+  const a=document.getElementById('toasts'),e=document.createElement('div');
+  e.className=`toast ${type}`;e.textContent=msg;a.appendChild(e);setTimeout(()=>e.remove(),3000);
+}
+function closeOv(id){document.getElementById(id).classList.remove('open');}
+
+// close modals on bg click
+['filterOv','detailOv','expOv','valOv'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(e.target===document.getElementById(id)){
+      document.getElementById(id).classList.remove('open');
+      if(id==='detailOv')detailId=null;
+    }
+  });
+});
+
+// ══════════════════════════════════════════
+// START
+// ══════════════════════════════════════════
+renderDeck();
+boot();
+</script>
+</body>
+</html>
